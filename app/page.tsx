@@ -105,19 +105,25 @@ export default function Home() {
 
   const downloadPDF = useCallback(async () => {
     const iframe = previewIframeRef.current;
-    if (!iframe?.contentDocument?.body) return;
+    if (!iframe?.contentDocument?.documentElement) return;
 
     setGenerating(true);
     try {
-      const body = iframe.contentDocument.body;
-      const canvas = await html2canvas(body, {
+      const doc = iframe.contentDocument;
+      const canvas = await html2canvas(doc.documentElement, {
         width: 794,
         height: 1123,
         scale: 2,
+        x: 0,
+        y: 0,
+        scrollX: 0,
+        scrollY: 0,
         useCORS: true,
         allowTaint: true,
         backgroundColor: "#ffffff",
         logging: false,
+        windowWidth: 794,
+        windowHeight: 1123,
       });
 
       const imgData = canvas.toDataURL("image/jpeg", 0.95);
