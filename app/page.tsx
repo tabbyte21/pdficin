@@ -1,14 +1,18 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 export default function Home() {
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const [cleanedHtml, setCleanedHtml] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
   const [previewScale, setPreviewScale] = useState(1);
+  const [generating, setGenerating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewWrapperRef = useRef<HTMLDivElement>(null);
+  const previewIframeRef = useRef<HTMLIFrameElement>(null);
 
   const cleanHtml = useCallback((raw: string): string => {
     const overrideCSS = `
@@ -17,6 +21,8 @@ export default function Home() {
           background: #ffffff !important;
           padding: 0 !important;
           margin: 0 !important;
+          width: 794px !important;
+          overflow: hidden !important;
         }
         .a4-container {
           box-shadow: none !important;
@@ -29,41 +35,29 @@ export default function Home() {
         .md\\:flex-row { flex-direction: row !important; }
         .md\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
         .md\\:p-10 { padding: 2.5rem !important; }
-
-        /* Force colors in print */
-        * {
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-          color-adjust: exact !important;
-        }
-
-        /* Override original @media print that hides content */
-        @media print {
-          @page { size: A4; margin: 0; }
-          html { height: 297mm; overflow: hidden; }
-          .no-print { display: flex !important; }
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
-          }
-        }
+        .no-print { display: none !important; }
       </style>
     `;
     const fitScript = `
       <script data-fit>
         function fitToPage() {
+          document.body.style.transform = '';
+          document.body.style.transformOrigin = '';
           var h = document.body.scrollHeight;
           var a4h = 1123;
           if (h > a4h) {
-            var z = a4h / h;
-            document.body.style.zoom = z;
+            var scale = a4h / h;
+            document.body.style.transformOrigin = 'top left';
+            document.body.style.transform = 'scale(' + scale + ')';
+            document.body.style.width = (100 / scale) + '%';
           }
         }
         var _origInit = window.onload;
         window.onload = function() {
           if (_origInit) _origInit();
-          setTimeout(fitToPage, 500);
+          setTimeout(fitToPage, 300);
+          setTimeout(fitToPage, 1000);
+          setTimeout(fitToPage, 2500);
         };
       <\/script>
     `;
@@ -109,39 +103,41 @@ export default function Home() {
     [cleanHtml]
   );
 
-  const downloadPDF = useCallback(() => {
-    if (!cleanedHtml) return;
+  const downloadPDF = useCallback(async () => {
+    const iframe = previewIframeRef.current;
+    if (!iframe?.contentDocument?.body) return;
 
-    const w = window.open("", "_blank");
-    if (!w) return;
-    w.document.write(cleanedHtml);
-    w.document.close();
+    setGenerating(true);
+    try {
+      const body = iframe.contentDocument.body;
+      const canvas = await html2canvas(body, {
+        width: 794,
+        height: 1123,
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+      });
 
-    // Wait for CDN resources, then measure, zoom, and print
-    let attempts = 0;
-    const fitAndPrint = () => {
-      attempts++;
-      try {
-        const body = w.document.body;
-        if (!body || body.scrollHeight < 200) {
-          if (attempts < 20) setTimeout(fitAndPrint, 500);
-          return;
-        }
-        const h = body.scrollHeight;
-        const a4h = w.innerHeight || 1123;
-        if (h > a4h) {
-          const z = (a4h / h) * 0.95; // 5% margin
-          body.style.zoom = String(z);
-        }
-        setTimeout(() => w.print(), 500);
-      } catch {
-        if (attempts < 20) setTimeout(fitAndPrint, 500);
-      }
-    };
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
 
-    // Give 3.5s for Tailwind CDN + fonts + Lucide icons to load
-    setTimeout(fitAndPrint, 3500);
-  }, [cleanedHtml]);
+      pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
+
+      const pdfName = fileName.replace(/\.(html|htm)$/i, "") || "belge";
+      pdf.save(`${pdfName}.pdf`);
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      alert("PDF oluşturulurken hata oluştu. Lütfen tekrar deneyin.");
+    } finally {
+      setGenerating(false);
+    }
+  }, [fileName]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -177,9 +173,10 @@ export default function Home() {
           {cleanedHtml && (
             <button
               onClick={downloadPDF}
-              className="px-5 py-2 text-sm font-semibold text-white bg-gray-800 rounded-lg hover:bg-gray-900 transition-colors cursor-pointer"
+              disabled={generating}
+              className="px-5 py-2 text-sm font-semibold text-white bg-gray-800 rounded-lg hover:bg-gray-900 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              PDF Indir
+              {generating ? "Olusturuluyor..." : "PDF Indir"}
             </button>
           )}
         </div>
@@ -258,6 +255,7 @@ export default function Home() {
                 }}
               >
                 <iframe
+                  ref={previewIframeRef}
                   srcDoc={cleanedHtml}
                   style={{
                     width: 794,
