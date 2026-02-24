@@ -48,10 +48,30 @@ export default function Home() {
         }
       </style>
     `;
+    const fitScript = `
+      <script data-fit>
+        function fitToPage() {
+          var h = document.body.scrollHeight;
+          var target = window.innerHeight || 1123;
+          if (h > target) {
+            var s = target / h;
+            document.body.style.transform = 'scale(' + s + ')';
+            document.body.style.transformOrigin = 'top left';
+            document.body.style.width = (100 / s) + '%';
+          }
+        }
+        var _origInit = window.onload;
+        window.onload = function() {
+          if (_origInit) _origInit();
+          setTimeout(fitToPage, 500);
+        };
+      <\/script>
+    `;
+
     if (raw.includes("</head>")) {
-      return raw.replace("</head>", overrideCSS + "</head>");
+      return raw.replace("</head>", overrideCSS + "</head>").replace("</body>", fitScript + "</body>");
     }
-    return overrideCSS + raw;
+    return overrideCSS + fitScript + raw;
   }, []);
 
   useEffect(() => {
@@ -92,26 +112,12 @@ export default function Home() {
   const downloadPDF = useCallback(() => {
     if (!cleanedHtml) return;
 
-    // Inject a script that waits for everything to load, then prints
-    const printScript = `<script data-print-trigger>
-      const _origOnload = window.onload;
-      window.onload = function() {
-        if (_origOnload) _origOnload();
-        setTimeout(function() { window.print(); }, 3000);
-      };
-    <\/script>`;
-
-    let printHtml = cleanedHtml;
-    if (printHtml.includes("</body>")) {
-      printHtml = printHtml.replace("</body>", printScript + "</body>");
-    } else {
-      printHtml = printHtml + printScript;
-    }
-
     const w = window.open("", "_blank");
     if (!w) return;
-    w.document.write(printHtml);
+    w.document.write(cleanedHtml);
     w.document.close();
+    // Wait for content + fitToPage + external resources, then print
+    setTimeout(() => w.print(), 4000);
   }, [cleanedHtml]);
 
   const handleDrop = useCallback(
