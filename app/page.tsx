@@ -116,8 +116,31 @@ export default function Home() {
     if (!w) return;
     w.document.write(cleanedHtml);
     w.document.close();
-    // Wait for content + fitToPage + external resources, then print
-    setTimeout(() => w.print(), 4000);
+
+    // Wait for CDN resources, then measure, zoom, and print
+    let attempts = 0;
+    const fitAndPrint = () => {
+      attempts++;
+      try {
+        const body = w.document.body;
+        if (!body || body.scrollHeight < 200) {
+          if (attempts < 20) setTimeout(fitAndPrint, 500);
+          return;
+        }
+        const h = body.scrollHeight;
+        const a4h = w.innerHeight || 1123;
+        if (h > a4h) {
+          const z = (a4h / h) * 0.95; // 5% margin
+          body.style.zoom = String(z);
+        }
+        setTimeout(() => w.print(), 500);
+      } catch {
+        if (attempts < 20) setTimeout(fitAndPrint, 500);
+      }
+    };
+
+    // Give 3.5s for Tailwind CDN + fonts + Lucide icons to load
+    setTimeout(fitAndPrint, 3500);
   }, [cleanedHtml]);
 
   const handleDrop = useCallback(
