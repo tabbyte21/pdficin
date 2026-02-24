@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import puppeteer from "puppeteer-core";
-import chromium from "@sparticuz/chromium";
+import chromium from "@sparticuz/chromium-min";
 
 export const maxDuration = 30;
+
+const CHROMIUM_URL =
+  "https://github.com/nichochar/chromium-bun-lambda/releases/download/chromium-pack/chromium-v131.0.2-pack.tar";
 
 export async function POST(req: NextRequest) {
   const { html } = await req.json();
@@ -13,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   const browser = await puppeteer.launch({
     args: chromium.args,
-    executablePath: await chromium.executablePath(),
+    executablePath: await chromium.executablePath(CHROMIUM_URL),
     headless: true,
   });
 
