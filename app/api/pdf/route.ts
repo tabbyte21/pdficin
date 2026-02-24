@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     await browser.close();
 
-    return new NextResponse(pdf, {
+    return new NextResponse(Buffer.from(pdf), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": "attachment; filename=belge.pdf",
