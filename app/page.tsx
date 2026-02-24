@@ -7,7 +7,6 @@ export default function Home() {
   const [cleanedHtml, setCleanedHtml] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
   const [previewScale, setPreviewScale] = useState(1);
-  const [downloading, setDownloading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -26,7 +25,6 @@ export default function Home() {
           max-width: none !important;
           width: 100% !important;
         }
-        /* Force responsive layouts to stay horizontal */
         .lg\\:flex-row { flex-direction: row !important; }
         .md\\:flex-row { flex-direction: row !important; }
         .md\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
@@ -74,32 +72,16 @@ export default function Home() {
     [cleanHtml]
   );
 
-  // Puppeteer server-side PDF - direkt indir
-  const downloadPDF = useCallback(async () => {
+  const downloadPDF = useCallback(() => {
     if (!cleanedHtml) return;
-    setDownloading(true);
-    try {
-      const res = await fetch("/api/pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ html: cleanedHtml }),
-      });
-
-      if (!res.ok) throw new Error("PDF olusturulamadi");
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName.replace(/\.[^.]+$/, "") + ".pdf";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("PDF error:", err);
-      alert("PDF olusturulurken hata olustu");
-    }
-    setDownloading(false);
-  }, [cleanedHtml, fileName]);
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(cleanedHtml);
+    w.document.close();
+    w.onload = () => {
+      setTimeout(() => w.print(), 800);
+    };
+  }, [cleanedHtml]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -135,17 +117,15 @@ export default function Home() {
           {cleanedHtml && (
             <button
               onClick={downloadPDF}
-              disabled={downloading}
-              className="px-5 py-2 text-sm font-semibold text-white bg-gray-800 rounded-lg hover:bg-gray-900 transition-colors cursor-pointer disabled:opacity-50"
+              className="px-5 py-2 text-sm font-semibold text-white bg-gray-800 rounded-lg hover:bg-gray-900 transition-colors cursor-pointer"
             >
-              {downloading ? "Hazirlaniyor..." : "PDF Indir"}
+              PDF Indir
             </button>
           )}
         </div>
       </header>
 
       <main className="flex-1 flex min-h-0">
-        {/* Left - Original */}
         <div className="w-1/2 border-r border-gray-200 flex flex-col">
           <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 shrink-0">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -201,7 +181,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Right - Preview */}
         <div className="w-1/2 flex flex-col">
           <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 shrink-0">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
