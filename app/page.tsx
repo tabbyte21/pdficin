@@ -74,13 +74,27 @@ export default function Home() {
 
   const downloadPDF = useCallback(() => {
     if (!cleanedHtml) return;
+
+    // Inject a script that waits for everything to load, then prints
+    const printScript = `<script data-print-trigger>
+      const _origOnload = window.onload;
+      window.onload = function() {
+        if (_origOnload) _origOnload();
+        setTimeout(function() { window.print(); }, 1500);
+      };
+    <\/script>`;
+
+    let printHtml = cleanedHtml;
+    if (printHtml.includes("</body>")) {
+      printHtml = printHtml.replace("</body>", printScript + "</body>");
+    } else {
+      printHtml = printHtml + printScript;
+    }
+
     const w = window.open("", "_blank");
     if (!w) return;
-    w.document.write(cleanedHtml);
+    w.document.write(printHtml);
     w.document.close();
-    w.onload = () => {
-      setTimeout(() => w.print(), 800);
-    };
   }, [cleanedHtml]);
 
   const handleDrop = useCallback(
