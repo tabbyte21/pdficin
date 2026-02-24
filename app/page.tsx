@@ -29,6 +29,23 @@ export default function Home() {
         .md\\:flex-row { flex-direction: row !important; }
         .md\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
         .md\\:p-10 { padding: 2.5rem !important; }
+
+        /* Force colors in print */
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          color-adjust: exact !important;
+        }
+
+        /* Override original @media print that hides content */
+        @media print {
+          .no-print { display: flex !important; }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
+        }
       </style>
     `;
     if (raw.includes("</head>")) {
@@ -80,7 +97,7 @@ export default function Home() {
       const _origOnload = window.onload;
       window.onload = function() {
         if (_origOnload) _origOnload();
-        setTimeout(function() { window.print(); }, 1500);
+        setTimeout(function() { window.print(); }, 3000);
       };
     <\/script>`;
 
