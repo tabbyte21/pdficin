@@ -39,6 +39,8 @@ export default function Home() {
 
         /* Override original @media print that hides content */
         @media print {
+          @page { size: A4; margin: 0; }
+          html { height: 297mm; overflow: hidden; }
           .no-print { display: flex !important; }
           * {
             -webkit-print-color-adjust: exact !important;
@@ -52,12 +54,10 @@ export default function Home() {
       <script data-fit>
         function fitToPage() {
           var h = document.body.scrollHeight;
-          var target = window.innerHeight || 1123;
-          if (h > target) {
-            var s = target / h;
-            document.body.style.transform = 'scale(' + s + ')';
-            document.body.style.transformOrigin = 'top left';
-            document.body.style.width = (100 / s) + '%';
+          var a4h = 1123;
+          if (h > a4h) {
+            var z = a4h / h;
+            document.body.style.zoom = z;
           }
         }
         var _origInit = window.onload;
