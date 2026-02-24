@@ -105,14 +105,33 @@ export default function Home() {
 
   const downloadPDF = useCallback(async () => {
     const iframe = previewIframeRef.current;
-    if (!iframe?.contentDocument?.documentElement) return;
+    if (!iframe?.contentDocument?.body) return;
 
     setGenerating(true);
     try {
-      const doc = iframe.contentDocument;
-      const canvas = await html2canvas(doc.documentElement, {
+      const body = iframe.contentDocument.body;
+
+      // Save current transform state
+      const savedTransform = body.style.transform;
+      const savedOrigin = body.style.transformOrigin;
+      const savedWidth = body.style.width;
+      const savedOverflow = body.style.overflow;
+
+      // Remove transform so html2canvas captures raw content
+      body.style.transform = "none";
+      body.style.transformOrigin = "";
+      body.style.width = "794px";
+      body.style.overflow = "visible";
+
+      // Let layout settle
+      await new Promise((r) => setTimeout(r, 150));
+
+      const naturalHeight = body.scrollHeight;
+
+      // Capture at natural size (no transform)
+      const rawCanvas = await html2canvas(body, {
         width: 794,
-        height: 1123,
+        height: naturalHeight,
         scale: 2,
         x: 0,
         y: 0,
@@ -122,11 +141,35 @@ export default function Home() {
         allowTaint: true,
         backgroundColor: "#ffffff",
         logging: false,
-        windowWidth: 794,
-        windowHeight: 1123,
       });
 
-      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      // Restore transform
+      body.style.transform = savedTransform;
+      body.style.transformOrigin = savedOrigin;
+      body.style.width = savedWidth;
+      body.style.overflow = savedOverflow;
+
+      // Create A4-sized canvas and draw scaled content
+      const a4w = 794 * 2;
+      const a4h = 1123 * 2;
+      const finalCanvas = document.createElement("canvas");
+      finalCanvas.width = a4w;
+      finalCanvas.height = a4h;
+      const ctx = finalCanvas.getContext("2d")!;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, a4w, a4h);
+
+      // Scale to fit A4 proportionally
+      const scale = Math.min(a4w / rawCanvas.width, a4h / rawCanvas.height);
+      ctx.drawImage(
+        rawCanvas,
+        0,
+        0,
+        rawCanvas.width * scale,
+        rawCanvas.height * scale
+      );
+
+      const imgData = finalCanvas.toDataURL("image/jpeg", 0.95);
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
