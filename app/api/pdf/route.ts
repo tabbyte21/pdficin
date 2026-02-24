@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
+
+export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   const { html } = await req.json();
@@ -9,8 +12,9 @@ export async function POST(req: NextRequest) {
   }
 
   const browser = await puppeteer.launch({
+    args: chromium.args,
+    executablePath: await chromium.executablePath(),
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
 
   try {
@@ -19,7 +23,6 @@ export async function POST(req: NextRequest) {
     await page.emulateMediaType("screen");
     await page.setContent(html, { waitUntil: "networkidle0", timeout: 15000 });
 
-    // Measure actual content height
     const contentHeight = await page.evaluate(() => {
       return Math.max(
         document.body.scrollHeight,
@@ -27,8 +30,6 @@ export async function POST(req: NextRequest) {
       );
     });
 
-    // A4 height in px at 96dpi = 1123px
-    // Calculate scale to fit everything in one page
     const a4Height = 1123;
     const scale = contentHeight > a4Height ? a4Height / contentHeight : 1;
 
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
       format: "A4",
       printBackground: true,
       margin: { top: 0, right: 0, bottom: 0, left: 0 },
-      scale: Math.max(0.1, scale), // min 0.1
+      scale: Math.max(0.1, scale),
       pageRanges: "1",
     });
 
